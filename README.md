@@ -37,6 +37,14 @@ It’s built with the **MERN stack** (MongoDB, Express.js, React.js, Node.js) an
 - **Database:** MongoDB Atlas (MERN stack)  
 - **Email Integration:** Gmail API (OAuth2)  
 - **Version Control & Deployment:** GitHub, optional Vercel/Netlify
+---
+## Overview (Output Screenshots)
+<img width="1905" height="870" alt="Screenshot 2025-08-25 114659" src="https://github.com/user-attachments/assets/ee3c3cc3-05a8-48b6-b3e6-4d5e724cabae" />
+<img width="1882" height="923" alt="Screenshot 2025-08-25 114754" src="https://github.com/user-attachments/assets/166ed806-b99f-4c46-a222-f7acc0ed564e" />
+
+
+<img width="1891" height="876" alt="image" src="https://github.com/user-attachments/assets/b8de9f5b-23f7-4d11-9a6a-e833eff1d1b6" />
+
 
 ---
 
