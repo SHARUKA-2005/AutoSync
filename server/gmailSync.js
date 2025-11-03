@@ -137,6 +137,16 @@ function extractJobStatus(subject, snippet) {
 }
 
 async function syncGmailJobs() {
+  // Check if credentials exist
+  if (!fs.existsSync(CREDENTIALS_PATH)) {
+    throw new Error("credentials.json not found. Please add your OAuth credentials.");
+  }
+
+  // Check if token exists
+  if (!fs.existsSync(TOKEN_PATH)) {
+    throw new Error("Not authenticated. Please authenticate with Gmail first.");
+  }
+
   const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH));
   const { client_secret, client_id, redirect_uris } = credentials.installed;
 
@@ -146,78 +156,99 @@ async function syncGmailJobs() {
     redirect_uris[0]
   );
 
-  if (fs.existsSync(TOKEN_PATH)) {
-    oAuth2Client.setCredentials(JSON.parse(fs.readFileSync(TOKEN_PATH)));
-  } else {
-    const authUrl = oAuth2Client.generateAuthUrl({
-      access_type: "offline",
-      scope: ["https://www.googleapis.com/auth/gmail.readonly"],
-    });
-    console.log("Authorize this app by visiting:", authUrl);
-    throw new Error("Token not found. Go to URL and get code to authorize.");
-  }
+  // Load and set credentials
+  const token = JSON.parse(fs.readFileSync(TOKEN_PATH));
+  oAuth2Client.setCredentials(token);
 
-  const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
-
-  const res = await gmail.users.messages.list({
-    userId: "me",
-    q: "subject:(job OR application OR interview OR career OR position OR hiring OR recruiter OR opportunity) newer_than:30d",
-    maxResults: 20,
+  // Handle token refresh
+  oAuth2Client.on('tokens', (tokens) => {
+    if (tokens.refresh_token) {
+      // Store the new refresh token
+      const currentToken = JSON.parse(fs.readFileSync(TOKEN_PATH));
+      currentToken.refresh_token = tokens.refresh_token;
+      fs.writeFileSync(TOKEN_PATH, JSON.stringify(currentToken, null, 2));
+    }
+    if (tokens.access_token) {
+      // Update access token
+      const currentToken = JSON.parse(fs.readFileSync(TOKEN_PATH));
+      currentToken.access_token = tokens.access_token;
+      fs.writeFileSync(TOKEN_PATH, JSON.stringify(currentToken, null, 2));
+    }
   });
 
-  const messages = res.data.messages || [];
-  let syncedCount = 0;
+  try {
+    const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
-  function decodeBase64(encoded) {
-    return Buffer.from(encoded, 'base64').toString('utf-8');
-  }
-
-  for (const msg of messages) {
-    const full = await gmail.users.messages.get({ userId: "me", id: msg.id });
-    const snippet = full.data.snippet;
-    const headers = full.data.payload.headers;
-
-    const subjectHeader = headers.find((h) => h.name === "Subject");
-    const fromHeader = headers.find((h) => h.name === "From");
-
-    const subject = subjectHeader ? subjectHeader.value : "No Subject";
-    const fromEmail = fromHeader ? fromHeader.value : "";
-
-    let emailContent = '';
-    if (full.data.payload.body && full.data.payload.body.data) {
-      emailContent = decodeBase64(full.data.payload.body.data);
-    } else if (full.data.payload.parts) {
-      const textPart = full.data.payload.parts.find(part => part.mimeType === 'text/plain');
-      if (textPart && textPart.body && textPart.body.data) {
-        emailContent = decodeBase64(textPart.body.data);
-      }
-    }
-
-    const existingJob = await Job.findOne({ emailSubject: subject });
-    if (existingJob) {
-      continue;
-    }
-
-    const jobTitle = extractJobTitle(subject);
-    const company = extractCompanyName(subject, snippet, fromEmail);
-    const status = extractJobStatus(subject, snippet);
-
-    await Job.create({
-      title: jobTitle,
-      company: company,
-      status: status,
-      emailSubject: subject,
-      emailSnippet: snippet,
-      senderEmail: fromEmail,
-      emailContent: emailContent,
-      dateApplied: new Date(parseInt(full.data.internalDate)),
+    const res = await gmail.users.messages.list({
+      userId: "me",
+      q: "subject:(job OR application OR interview OR career OR position OR hiring OR recruiter OR opportunity) newer_than:30d",
+      maxResults: 20,
     });
 
-    syncedCount++;
-    console.log(`✅ Synced: ${jobTitle} at ${company} (${status})`);
-  }
+    const messages = res.data.messages || [];
+    let syncedCount = 0;
 
-  return { message: "Sync complete", count: syncedCount };
+    function decodeBase64(encoded) {
+      return Buffer.from(encoded, 'base64').toString('utf-8');
+    }
+
+    for (const msg of messages) {
+      const full = await gmail.users.messages.get({ userId: "me", id: msg.id });
+      const snippet = full.data.snippet;
+      const headers = full.data.payload.headers;
+
+      const subjectHeader = headers.find((h) => h.name === "Subject");
+      const fromHeader = headers.find((h) => h.name === "From");
+
+      const subject = subjectHeader ? subjectHeader.value : "No Subject";
+      const fromEmail = fromHeader ? fromHeader.value : "";
+
+      let emailContent = '';
+      if (full.data.payload.body && full.data.payload.body.data) {
+        emailContent = decodeBase64(full.data.payload.body.data);
+      } else if (full.data.payload.parts) {
+        const textPart = full.data.payload.parts.find(part => part.mimeType === 'text/plain');
+        if (textPart && textPart.body && textPart.body.data) {
+          emailContent = decodeBase64(textPart.body.data);
+        }
+      }
+
+      const existingJob = await Job.findOne({ emailSubject: subject });
+      if (existingJob) {
+        continue;
+      }
+
+      const jobTitle = extractJobTitle(subject);
+      const company = extractCompanyName(subject, snippet, fromEmail);
+      const status = extractJobStatus(subject, snippet);
+
+      await Job.create({
+        title: jobTitle,
+        company: company,
+        status: status,
+        emailSubject: subject,
+        emailSnippet: snippet,
+        senderEmail: fromEmail,
+        emailContent: emailContent,
+        dateApplied: new Date(parseInt(full.data.internalDate)),
+      });
+
+      syncedCount++;
+      console.log(`✅ Synced: ${jobTitle} at ${company} (${status})`);
+    }
+
+    return { message: "Sync complete", count: syncedCount };
+  } catch (error) {
+    // Handle specific OAuth errors
+    if (error.code === 401 || error.message.includes('invalid_grant')) {
+      // Token is invalid, delete it
+      if (fs.existsSync(TOKEN_PATH)) {
+        fs.unlinkSync(TOKEN_PATH);
+      }
+      throw new Error("Authentication expired. Please re-authenticate with Gmail.");
+    }
+    throw error;
+  }
 }
 
 module.exports = syncGmailJobs;

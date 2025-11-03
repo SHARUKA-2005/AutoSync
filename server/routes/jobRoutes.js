@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const Job = require('../models/Job');
-const { syncEmails } = require('../gmailservice');
 
 // Create a new job
 router.post('/', async (req, res) => {
@@ -19,8 +18,6 @@ router.get('/', async (req, res) => {
   try {
     const jobs = await Job.find().sort({ dateApplied: -1 });
     res.json(jobs);
-    syncEmails(); // run in background
-    res.json({ message: 'Sync started! Check console.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Briefcase, RefreshCw, Mail } from "lucide-react";
+import { Briefcase, RefreshCw, Mail, LogOut } from "lucide-react";
 import JobCard from "./components/JobCard";
 import JobModal from "./components/JobModal";
+import AuthPage from "./components/AuthPage";
 import {
   SyncButton,
   LoadingSpinner,
@@ -17,6 +18,22 @@ const App = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [syncType, setSyncType] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  const checkAuthStatus = async () => {
+    try {
+      setCheckingAuth(true);
+      const response = await fetch("http://localhost:5000/api/auth/status");
+      const data = await response.json();
+      setIsAuthenticated(data.authenticated);
+    } catch (err) {
+      console.error("Error checking auth status:", err);
+      setIsAuthenticated(false);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
 
   const fetchJobs = async () => {
     try {
@@ -65,6 +82,25 @@ const App = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/revoke", {
+        method: "POST",
+      });
+      
+      if (response.ok) {
+        setIsAuthenticated(false);
+        setJobs([]);
+        setSyncMessage("Successfully disconnected Gmail account");
+        setSyncType("success");
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+      setSyncMessage("Failed to disconnect account");
+      setSyncType("error");
+    }
+  };
+
   const deleteJob = async (id) => {
     try {
       const response = await fetch(`http://localhost:5000/api/jobs/${id}`, {
@@ -109,9 +145,34 @@ const App = () => {
     setSyncType("");
   };
 
-  useEffect(() => {
+  const handleAuthComplete = () => {
+    setIsAuthenticated(true);
     fetchJobs();
+  };
+
+  useEffect(() => {
+    checkAuthStatus();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && !checkingAuth) {
+      fetchJobs();
+    }
+  }, [isAuthenticated, checkingAuth]);
+
+  // Show loading screen while checking authentication
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Show authentication page if not authenticated
+  if (!isAuthenticated) {
+    return <AuthPage onAuthComplete={handleAuthComplete} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
@@ -144,6 +205,13 @@ const App = () => {
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
+            </button>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-3 px-6 py-3 bg-red-50/70 backdrop-blur-sm hover:bg-red-100/90 text-red-600 font-semibold rounded-2xl transition-all duration-300 border border-red-200/20 hover:shadow-lg hover:-translate-y-0.5"
+            >
+              <LogOut className="w-4 h-4" />
+              Disconnect Gmail
             </button>
           </div>
         </div>
