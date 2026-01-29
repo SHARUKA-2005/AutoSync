@@ -1,4 +1,4 @@
-# Job Application Tracker (MERN)
+# AutoSync 
 
  **Track your job applications efficiently, with automatic Gmail syncing.**
 
