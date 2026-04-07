@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  server:
+    build: ./server
+    container_name: backend
+    ports:
+      - "5000:5000"
+    networks:
+      - app-net
+
+  client:
+    build: ./client
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    networks:
+      - app-net
+
+networks:
+  app-net:

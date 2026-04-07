@@ -24,7 +24,7 @@ const App = () => {
   const checkAuthStatus = async () => {
     try {
       setCheckingAuth(true);
-      const response = await fetch("http://localhost:5000/api/auth/status");
+      const response = await fetch("http://backend/api/auth/status");
       const data = await response.json();
       setIsAuthenticated(data.authenticated);
     } catch (err) {
@@ -39,7 +39,7 @@ const App = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("http://localhost:5000/api/jobs");
+      const response = await fetch("http://backend/api/jobs");
 
       if (!response.ok) {
         throw new Error(`Failed to fetch jobs: ${response.status}`);
@@ -58,7 +58,7 @@ const App = () => {
   const handleSync = async () => {
     try {
       setSyncing(true);
-      const response = await fetch("http://localhost:5000/api/sync", {
+      const response = await fetch("http://backend/api/sync", {
         method: "POST",
       });
 
@@ -84,7 +84,7 @@ const App = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/auth/revoke", {
+      const response = await fetch("http://backend/api/auth/revoke", {
         method: "POST",
       });
       
@@ -103,7 +103,7 @@ const App = () => {
 
   const deleteJob = async (id) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/jobs/${id}`, {
+      const response = await fetch(`http://backend/api/jobs/${id}`, {
         method: "DELETE",
       });
 
@@ -120,7 +120,7 @@ const App = () => {
 
   const updateJobStatus = async (id, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/jobs/${id}`, {
+      const response = await fetch(`http://backend/api/jobs/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

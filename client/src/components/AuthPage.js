@@ -12,7 +12,7 @@ function AuthPage({ onAuthComplete }) {
 
   const checkAuthStatus = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/status');
+      const response = await fetch('http://backend/api/auth/status');
       const data = await response.json();
       
       if (data.authenticated) {
@@ -31,7 +31,7 @@ function AuthPage({ onAuthComplete }) {
       setAuthStatus('loading');
       setErrorMessage('');
       
-      const response = await fetch('http://localhost:5000/api/auth/url');
+      const response = await fetch('http://backend/api/auth/url');
       const data = await response.json();
       
       if (data.authUrl) {
@@ -51,7 +51,7 @@ function AuthPage({ onAuthComplete }) {
         // Poll for completion
         const pollInterval = setInterval(async () => {
           try {
-            const statusResponse = await fetch('http://localhost:5000/api/auth/status');
+            const statusResponse = await fetch('http://backend/api/auth/status');
             const statusData = await statusResponse.json();
             
             if (statusData.authenticated) {
